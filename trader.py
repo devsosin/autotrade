@@ -10,6 +10,7 @@ class KISTrade:
 
     def __init__(self, appkey:str, appsecret:str, account:str, mode:str='s') -> None:
         '''
+        account: 주식계좌번호 00000000-00
         mode: real, simulate (r, s)
         '''
         self.appkey = appkey
@@ -36,9 +37,9 @@ class KISAuth:
     인증관리
     '''
 
-    def __init__(self, kis:KISTrade):
+    def __init__(self, kis:KISTrade) -> None:
         self.kis = kis
-        self.access_token = None
+        self.access_token = ''
         
     def getToken(self) -> str:
         try:
@@ -63,33 +64,13 @@ class KISAuth:
             print(res_json)
             return ''
 
-    def getHashKey(self, **body):
+    def getHashKey(self, body:dict) -> str:
         try:
             URL = self.domain + '/uapi/hashkey'
             headers = {
                 # 'content-type':'application/json; charset=utf-8',
                 **self.kis.getConfigs(),
             }
-            body = {
-                **body,
-                "CANO": self.kis.account,
-            }
-            # 정보확인
-            # body = {
-            #     "ORD_PRCS_DVSN_CD": "02",
-            #     "CANO": self.kis.account,
-            #     # "ACNT_PRDT_CD": "03",
-            #     # "SLL_BUY_DVSN_CD": "02",
-            #     # "SHTN_PDNO": "101S06",
-            #     # "ORD_QTY": "1",
-            #     # "UNIT_PRICE": "370",
-            #     # "NMPR_TYPE_CD": "",
-            #     # "KRX_NMPR_CNDT_CD": "",
-            #     # "CTAC_TLNO": "",
-            #     # "FUOP_ITEM_DVSN_CD": "",
-            #     # "ORD_DVSN_CD": "02"
-            # }
-
             res_json = requests.post(URL, headers=headers, data=json.dumps(body)).json()
             self.hash = res_json['HASH']
 
@@ -107,46 +88,107 @@ class StockInfo:
 
 class Domestic:
     '''
-    국내주식 주문
+    국내주식
     '''
 
     TRAIDING_ID = {
-        'r': {
-            'b': 'TTTC0802U',
-            's': 'TTTC0801U'
+        'r': { # 실전
+            'b': 'TTTC0802U', # 매수
+            's': 'TTTC0801U', # 매도
+            'c': 'TTTC0803U', # 정정 취소
         },
-        's': {
-            'b': 'VTTC0802U',
-            's': 'VTTC0801U'
+        's': { # 모의
+            'b': 'VTTC0802U', # 매수
+            's': 'VTTC0801U', # 매도
+            'c': 'VTTC0803U', # 정정 취소
         }
     }
 
     def __init__(self, kis:KISTrade, auth:KISAuth) -> None:
         self.kis = kis
         self.auth = auth
+        self.order_list = []
 
-    def stock_order(self, order_type='b'):
+    def order_stock(self, stock_id:str, quantity:int, order_division:str='01', price:int=0, order_type='b'):
         '''
         주식 주문
+        필수값
+        stock_id - 종목코드 (6자리)
+        order_division - 주문구분 00-지정가, 01-시장가, 05-장전 시간외, 06-장후 시간외, 07-시간외 단일가
+        quantity: 수량
+        price: 가격 (시장가 외 필수)
         '''
+
+        assert len(stock_id) != 6, '주식 종목코드는 6자리입니다.'
+        assert order_division != '01' and price == 0, '시장가가 아닐 경우 price는 필수값입니다.'
 
         try:
             URL = self.kis.domain + '/uapi/domestic-stock/v1/trading/order-cash'
+
+            body = {
+                'CANO': self.kis.account.split('-')[0], # 계좌번호 (앞 8자리)
+                'ACNT_PRDT_CD': self.kis.account.split('-')[1], # 계좌번호 (뒤 2자리)
+                'PDNO': stock_id, # 종목코드 (6자리)
+                'ORD_DVSN': '', # 주문구분
+                'ORD_QTY': str(quantity).zfill(2), # 주문수량
+                'ORD_UNPR': str(price)# 주문단가
+            }
+
             headers = {
                 # 'content-type': 'application/json; charset=utf-8',
                 'authorization': self.auth.getToken(),
-                **self.kis.getConfigs(),
                 'tr_id': self.TRAIDING_ID[self.kis.mode][order_type],
+                'hashkey': self.auth.getHashKey(body)
+                **self.kis.getConfigs(),
             }
 
-            requests.post(URL, headers=headers, )
+            r = requests.post(URL, headers=headers, data=json.dumps(body))
+            res_headers = r.headers
+            res_json = r.json()
 
-            pass
+            # 주문 데이터
+            # {
+            #     order_number: {
+            #         1. body 데이터
+            #         2. 처리결과 데이터
+            #     }
+            # }
+
+            {
+                'status':res_json['rd_cd'] == '0',
+                'org_number': res_json['output']['KRX_FWDG_ORD_ORGNO'],
+                'order_number': res_json['output']['ODNO'],
+                'order_date': datetime.strptime(res_json['output']['ORD_TMD'], '%H%M%S')
+            }
+
+            return True
+
         except:
             # error 발생
             print('############### 에러발생 ###############')
 
-            return
+            return False
+    
+    def order_change(self, order_number:str):
+        '''
+        주문 정정
+        '''
+        body = {
+            # 특정 주문 데이터 (order_number)
+            'RVSE_CNCL_DVSN_CD': '01'
+        }
+
+        return 
+
+    def order_cancle(self, order_number:str):
+        '''
+        주문 취소
+        '''
+        body = {
+            # 특정 주문의 데이터 (order_number)
+            'RVSE_CNCL_DVSN_CD': '02'
+        }
+        return 
 
 if __name__ == '__main__':
     configs = {l.split('k=k')[0]:l.split('k=k')[1].rstrip() for l in open('configs', 'r', encoding='utf-8').readlines()}
@@ -156,3 +198,7 @@ if __name__ == '__main__':
 
     print(kis.getToken())
 
+    auth = KISAuth(kis)
+
+    domestic = Domestic(kis, auth)
+    print(domestic.order_stock('005630', 1))
