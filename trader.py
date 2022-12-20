@@ -3,6 +3,9 @@ import requests
 from datetime import datetime
 import json
 
+import os
+import pandas as pd
+
 class KISTrade:
     '''
     한국투자증권 API
@@ -85,6 +88,34 @@ class StockInfo:
     '''
     주식 종목코드 관리
     '''
+
+    def __init__(self) -> None:
+        pass
+
+    def kospi(self) -> pd.DataFrame:
+        '''
+        코스피 주식정보
+        '''
+        if os.path.exists('./kospi_code.xlsx'):
+            return pd.read_excel('./kospi_code.xlsx')
+        
+        from stocks_info import kis_kospi_code_mst
+        kis_kospi_code_mst.kospi_master_download()
+        df = kis_kospi_code_mst.get_kospi_master_dataframe()
+        df.to_excel('kospi_code.xlsx',index=False)
+        return df
+
+    def kosdaq(self) -> pd.DataFrame:
+        '''
+        코스닥 주식정보
+        '''
+        if os.path.exists('./kosdaq_code.xlsx'):
+            return pd.read_excel('./kosdaq_code.xlsx')
+        from stocks_info import kis_kosdaq_code_mst
+        kis_kosdaq_code_mst.kosdaq_master_download()
+        df = kis_kosdaq_code_mst.get_kosdaq_master_dataframe()
+        df.to_excel('kosdaq_code.xlsx',index=False)
+        return df
 
 class Domestic:
     '''
@@ -191,14 +222,21 @@ class Domestic:
         return 
 
 if __name__ == '__main__':
-    configs = {l.split('k=k')[0]:l.split('k=k')[1].rstrip() for l in open('configs', 'r', encoding='utf-8').readlines()}
-    kis = KISTrade(configs['APPKey'], configs['APPSecret'], configs['saccount'])
-
-    print(kis.getHashKey())
-
-    print(kis.getToken())
-
-    auth = KISAuth(kis)
-
-    domestic = Domestic(kis, auth)
-    print(domestic.order_stock('005630', 1))
+    print('한국투자증권 계정 확인')
+    # configs = {l.split('k=k')[0]:l.split('k=k')[1].rstrip() for l in open('configs', 'r', encoding='utf-8').readlines()}
+    # kis = KISTrade(configs['APPKey'], configs['APPSecret'], configs['saccount'])
+    
+    print('주식정보 설정')
+    # 사용할 수 있는 종목, 사용할 칼럼만 남기기 -> 데이터 확인 필요
+    stock_info = StockInfo()
+    kospi = stock_info.kospi()
+    if type(kospi) == pd.DataFrame:
+        print(kospi.head(1))
+    
+    kosdaq = stock_info.kosdaq()
+    if type(kosdaq) == pd.DataFrame:
+        print(kosdaq.head(1))
+    
+    # auth = KISAuth(kis)
+    # domestic = Domestic(kis, auth)
+    # print(domestic.order_stock('005630', 1))

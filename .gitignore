@@ -3,6 +3,7 @@
 
 ### Custom ###
 configs
+*.xlsx
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
