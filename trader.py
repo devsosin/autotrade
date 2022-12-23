@@ -205,7 +205,7 @@ class Domestic:
                 **body
             }
 
-            return True
+            return order_receipt
 
         except:
             # error 발생
@@ -456,7 +456,7 @@ def my_print(*msg):
 
 if __name__ == '__main__':
     
-    print('한국투자증권 계정 확인')
+    my_print('한국투자증권 계정 확인')
     configs = {l.split('k=k')[0]:l.split('k=k')[1].rstrip() for l in open('configs', 'r', encoding='utf-8').readlines()}
     kis = KISTrade(configs['APPKey'], configs['APPSecret'], configs['saccount'])
     
@@ -479,6 +479,7 @@ if __name__ == '__main__':
     signals = deque([])
     # signal_type -> time, price, 
     check_point = True
+    asset_check = True
 
     while True:
         try:
@@ -491,12 +492,28 @@ if __name__ == '__main__':
                 #################### 매수 매도 Signal 체크
                 # Signal 체크 (구매 조건 - 로직 들어가는 부분)
 
-                # 매수 1회
-                if check_point:
-                    my_print(domestic.order_stock('005930', 1))
-                    check_point=False
+                # # 매수 1회
+                # if check_point:
+                #     my_print(domestic.order_stock('005930', 1))
+                #     check_point=False
 
-                # 매도 - 시그널이 왔을 때 처리 방법, 주식잔고에 있어야함
+                # # 10분마다 잔고조회 (1회만)
+                # if datetime.now().minute%10 == 0:
+                #     if asset_check:
+                #         my_print(domestic.order_asset())
+                #         asset_check = False
+                # else:
+                #     asset_check = True
+
+                my_print(domestic.order_able('005930', 58200))
+
+                # 실전만 제공
+                # my_print(domestic.order_changable())
+
+                # # 매도 - 시그널이 왔을 때 처리 방법, 주식잔고에 있어야함
+                # if check_point:
+                #     my_print(domestic.order_stock('005930', 1, order_type='s'))
+                #     check_point=False
 
                 #################### 주문 체크
 
