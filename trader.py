@@ -457,7 +457,7 @@ def my_print(*msg):
 if __name__ == '__main__':
     
     my_print('한국투자증권 계정 확인')
-    configs = {l.split('k=k')[0]:l.split('k=k')[1].rstrip() for l in open('configs', 'r', encoding='utf-8').readlines()}
+    configs = {l.split('=', 1)[0]:l.split('=', 1)[1].rstrip() for l in open('configs', 'r', encoding='utf-8').readlines()}
     kis = KISTrade(configs['APPKey'], configs['APPSecret'], configs['saccount'])
     
     my_print('주식정보 설정')
